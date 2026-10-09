@@ -1,0 +1,37 @@
+# Article content and generated pages never go into git (see docs/privacy-and-copyright.md)
+data/
+input/
+output/
+*.pdf
+*.html
+*.htm
+*.docx
+*.doc
+*.odt
+*.indd
+*.idml
+*.css
+*.png
+*.jpg
+*.jpeg
+*.gif
+*.svg
+*.webp
+*.tif
+*.tiff
+# Python
+.venv/
+venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+# Never commit secrets, logs, archives or downloaded packages
+.env
+*.env
+*.log
+*.zip
+*.tgz
+*.tar.gz
+*.whl
+*.tmp
+.DS_Store
