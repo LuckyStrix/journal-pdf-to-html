@@ -22,7 +22,7 @@
 
 | Step | What happens |
 |---|---|
-| `convert` | reads the PDF in memory and writes the `.html` you asked for. Nothing else is saved: no caches, logs or temporary copies. |
+| `convert` | reads the PDF in memory and writes the `.html` you asked for, plus one image file per figure beside it. Nothing else is saved: no caches, logs or temporary copies. |
 | `inspect` | prints the layout to your terminal with the text **masked** (`Xxxxx, 9999`) unless you add `--unmasked` |
 | network | every command turns off outbound connections before it starts (`pdf2html/netguard.py`). If any library tried to go online, it would fail with an error. |
 
@@ -75,7 +75,8 @@ legal or ethical weight: AI-use disclosures, conflict-of-interest and funding
 statements, corresponding-author notes, copyright lines and licence notices.
 
 - **The converter never adds, removes or rewrites words.** Its changes are limited to
-  line breaks, hyphenation at line ends, whitespace and character encoding.
+  line breaks, hyphenation at line ends, whitespace and character encoding. Figures
+  are saved as the pictures embedded in the PDF (JPEGs byte for byte).
 - **A completeness check runs on every conversion.** It counts every letter and digit
   printed in the PDF and requires exactly the same in the page. If anything is missing
   or added, nothing is written. The only exceptions are the running heads and feet the

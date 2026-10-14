@@ -8,9 +8,9 @@ from pathlib import Path
 
 from . import netguard
 from .check import compare_with_html, compare_with_pdf
-from .models import LINES, PAGE, PARAGRAPH
+from .models import FIGURE, FOOTNOTE, HEADING, LINES, PAGE, PARAGRAPH
 from .reader import read_pdf
-from .render import DEFAULT_WIDTH, render
+from .render import DEFAULT_WIDTH, image_src, render
 from .structure import build_article
 from .text import spans_text
 
@@ -24,13 +24,16 @@ def mask(text: str) -> str:
 def _summary(pages, article, offpage: int) -> list[str]:
     labels = [b.label for b in article.body if b.kind == PAGE]
     paras = sum(1 for b in article.body if b.kind == PARAGRAPH)
-    lines_blocks = sum(1 for b in article.body if b.kind == LINES)
+    lines_blocks = sum(1 for b in article.body if b.kind in (LINES, FOOTNOTE))
+    headings = sum(1 for b in article.body if b.kind == HEADING)
+    figures = sum(1 for b in article.body if b.kind == FIGURE)
     joined = sum(1 for j in article.joins if j[2] != j[0] + j[1])
     kept = len(article.joins) - joined
     out = [
         f"  pages {labels[0]}-{labels[-1]} ({len(pages)}), " if labels else "  no pages, ",
         f"title: {'yes' if article.title else 'NOT FOUND'}, author lines: {len(article.authors)}, "
-        f"paragraph pieces: {paras}, footnote/signature blocks: {lines_blocks}",
+        f"headings: {headings}, paragraph pieces: {paras}, footnote/signature blocks: {lines_blocks}, "
+        f"figures: {figures}",
         f"  line-end hyphens: {joined} rejoined, {kept} kept",
     ]
     out = [out[0] + out[1], out[2]]
@@ -45,6 +48,7 @@ def cmd_convert(args) -> int:
         print("-o works with one PDF; use --out-dir for several.", file=sys.stderr)
         return 2
     status = 0
+    written: set[Path] = set()  # picture files written in this run, so two articles can't overwrite each other's
     for pdf in args.pdf:
         if not pdf.is_file():
             print(f"{pdf}: not found", file=sys.stderr)
@@ -57,9 +61,18 @@ def cmd_convert(args) -> int:
             continue
         pages, offpage = read_pdf(pdf)
         article = build_article(pages)
+        for block in article.body:
+            if block.kind == FIGURE:
+                block.name = args.image_prefix + block.name
         html = render(article, journal=args.journal, logo="" if args.no_logo else args.logo,
                       css=args.css, lang=args.lang, width=args.width)
         problems = compare_with_pdf(pages, article) + compare_with_html(html, article)
+        pictures = {out.parent / image_src(b): b.image.data for b in article.body if b.kind == FIGURE and b.image.data}
+        for path in pictures:
+            if path.resolve() in written:
+                problems.append(f"{path} was already written for another article in this run; use --image-prefix")
+            elif path.exists() and not args.force:
+                problems.append(f"{path} already exists; pass --force to overwrite it")
         print(f"{pdf} -> {out}", file=sys.stderr)
         for line in _summary(pages, article, offpage):
             print(line, file=sys.stderr)
@@ -74,6 +87,10 @@ def cmd_convert(args) -> int:
             continue
         out.parent.mkdir(parents=True, exist_ok=True)
         out.write_text(html, encoding="ascii", newline="\n")
+        for path, data in pictures.items():
+            path.write_bytes(data)
+            written.add(path.resolve())
+            print(f"  wrote {path.name}", file=sys.stderr)
     return status
 
 
@@ -82,6 +99,9 @@ def cmd_inspect(args) -> int:
     pages, offpage = read_pdf(args.pdf)
     for page in pages:
         print(f"=== page {page.index + 1}  {page.width:.0f}x{page.height:.0f} pt")
+        for img in page.images:
+            print(f"  picture x {img.x0:6.1f}-{img.x1:6.1f}  y {img.y0:6.1f}-{img.y1:6.1f}  "
+                  f"{img.pixels[0]}x{img.pixels[1]} px  {img.ext or img.problem}")
         for line in sorted(page.lines, key=lambda l: (-l.y1, l.x0)):
             styles = "".join(("B" if s.bold else "-") + ("I" if s.italic else "-") for s in line.spans[:3])
             print(f"  x {line.x0:6.1f}-{line.x1:6.1f}  y {line.y0:6.1f}  {line.size:4.1f}pt {styles:6} "
@@ -94,6 +114,8 @@ def cmd_inspect(args) -> int:
     for block in article.body:
         if block.kind == PAGE:
             print(f"  [page {block.label}{'' if block.printed else ', inferred'}]")
+        elif block.kind == FIGURE:
+            print(f"  figure    [{block.name}] {show(spans_text(block.rows[0]))[:60] if block.rows else '(no caption)'}")
         else:
             for row in block.rows:
                 print(f"  {block.kind:9} {show(spans_text(row))[:70]}")
@@ -116,7 +138,8 @@ def main(argv: list[str] | None = None) -> int:
     c.add_argument("--css", default="styles.css", help="stylesheet path as the page should reference it")
     c.add_argument("--lang", default="en", help="language of the article (the page's lang attribute)")
     c.add_argument("--width", type=int, default=DEFAULT_WIDTH, help="wrap HTML source lines at this width")
-    c.add_argument("--force", action="store_true", help="overwrite an existing HTML file")
+    c.add_argument("--image-prefix", default="", help="put this before each picture's file name (figure1.jpeg)")
+    c.add_argument("--force", action="store_true", help="overwrite an existing HTML file and its pictures")
     c.add_argument("--show-joins", action="store_true", help="list every line-end hyphen decision")
     c.set_defaults(func=cmd_convert)
 

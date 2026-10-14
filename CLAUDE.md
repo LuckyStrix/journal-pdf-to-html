@@ -6,6 +6,9 @@ No text is lost silently. `check.py` compares every letter and digit in the PDF 
 the Article and with the rendered HTML, and `convert` writes nothing on a mismatch.
 Anything left out on purpose (running heads) goes in `Article.dropped` and is named
 in the report. Don't add a rule that discards lines without going through `dropped`.
+Pictures follow the same rule: every image the PDF draws is a FIGURE block or in
+`Article.dropped_images` (hidden under a later one, off the page, a repeated margin
+logo), and `check.py` fails the conversion otherwise.
 
 ## What the product is
 
@@ -33,6 +36,27 @@ access. It's pure, so it's unit-tested directly with hand-made `Line`s
 - **Signature lines are "short", not "narrow":** in a two-column layout an
   affiliation line is wider than 60% of the column. It's the gap to the column's
   right edge that matters.
+
+- **Hidden pictures (`structure.HIDDEN`):** InDesign leaves an old placement under its
+  replacement (seen in a real proof, twice in one article); only the later-drawn
+  picture is seen.
+- **Superscripts (`reader.SUP_SIZE`, `SUP_RISE`):** InDesign raises a glyph by moving
+  it (its matrix baseline moves); Word uses text rise, which only moves the glyph box.
+  Both are checked.
+- **Guessed spaces (`reader.GUESSED_SPACE`):** on a page that draws its own space
+  characters, pdfminer's gap-based spaces are only kept when word-sized. Without this,
+  letter-spaced URLs came out as "h o u s e . o r g" and "fl" kerning as "conf lict".
+- **Figure holes in `paragraphs()`:** the space a removed figure leaves in a column is
+  not a paragraph gap; nor is a gap after a line that stops mid-sentence.
+- **Web addresses (`text.url_continues`, `url_hyphen`):** joined without a space; a
+  break hyphen is decided by an unbroken copy elsewhere in the article.
+
+## Regression check
+
+`data/Article 5.pdf` (the first article) must convert to exactly the same page as
+before any change that isn't meant to affect it. Convert it to a scratch file before
+and after, and `diff` them. `data/issue2/` holds a proof with figures and its
+unfinished hand-made page.
 
 ## Conventions
 

@@ -1,5 +1,8 @@
 """Completeness checks: the HTML must hold every letter and digit the PDF prints.
 
+Pictures are checked the same way: every picture drawn in the PDF is either a
+figure in the article or left out with a reason, and every figure has its <img>.
+
 Comparing character counts (not order) is deliberate. Footnotes and signatures
 move, and hyphens are removed, but no letter or digit may appear or disappear.
 This is what catches the silent losses a hand conversion makes, such as a
@@ -10,7 +13,8 @@ from __future__ import annotations
 from collections import Counter
 from html.parser import HTMLParser
 
-from .models import PAGE, Article, Page
+from .models import FIGURE, PAGE, Article, Page
+from .render import image_src
 
 
 def alnum(text: str) -> Counter[str]:
@@ -49,6 +53,13 @@ def compare_with_pdf(pages: list[Page], article: Article) -> list[str]:
         source -= alnum(line.text)
     found = article_chars(article)
     problems = []
+    drawn = [img for page in pages for img in page.images]
+    accounted = [b.image for b in article.body if b.kind == FIGURE] + article.dropped_images
+    unaccounted = [img for img in drawn if not any(img is a for a in accounted)]
+    if unaccounted:
+        problems.append(f"{len(unaccounted)} picture(s) in the PDF neither in the article nor reported as left out")
+    if len(accounted) != len(drawn):
+        problems.append(f"{len(accounted)} pictures accounted for, but the PDF draws {len(drawn)}")
     if missing := source - found:
         problems.append(f"characters in the PDF missing from the article: {_describe(missing)}")
     if extra := found - source:
@@ -61,10 +72,13 @@ class _BodyText(HTMLParser):
         super().__init__(convert_charrefs=True)
         self.in_body = False
         self.parts: list[str] = []
+        self.images: list[str] = []
 
     def handle_starttag(self, tag, attrs):
         if tag == "body":
             self.in_body = True
+        elif tag == "img" and self.in_body:
+            self.images.append(dict(attrs).get("src") or "")
 
     def handle_data(self, data):
         if self.in_body:
@@ -85,4 +99,9 @@ def compare_with_html(html: str, article: Article) -> list[str]:
         problems.append(f"characters missing from the HTML: {_describe(missing)}")
     if extra := shown - expected:
         problems.append(f"unexpected characters in the HTML: {_describe(extra)}")
+    figures = Counter(image_src(b) for b in article.body if b.kind == FIGURE)
+    if missing_images := figures - Counter(parser.images):
+        problems.append(f"figures missing from the HTML: {', '.join(sorted(missing_images))}")
+    if doubled := [src for src, n in figures.items() if n > 1]:
+        problems.append(f"two figures share a file name: {', '.join(doubled)}")
     return problems

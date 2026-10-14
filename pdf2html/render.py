@@ -7,7 +7,7 @@ and footnotes at the end of the page they were printed on.
 """
 from __future__ import annotations
 
-from .models import LINES, PAGE, PARAGRAPH, Article
+from .models import ABSTRACT, FIGURE, FOOTNOTE, HEADING, LINES, PAGE, PARAGRAPH, Article, Block
 from .text import escape, spans_html, spans_text, wrap
 
 DEFAULT_WIDTH = 90  # line length of the hand-made pages, so diffs against them stay readable
@@ -15,6 +15,15 @@ DEFAULT_WIDTH = 90  # line length of the hand-made pages, so diffs against them 
 
 def _attr(value: str) -> str:
     return escape(value).replace('"', "&quot;")
+
+
+FOOTNOTE_RULE = '<hr style="width:25%;text-align:left;margin-left:0">'
+
+
+def image_src(block: Block) -> str:
+    """File name of a figure's picture, next to the page. A picture that couldn't be
+    written out (Image.problem) still gets one, to be saved from the PDF by hand."""
+    return f"{block.name}.{block.image.ext or 'png'}"
 
 
 def render(article: Article, *, journal: str = "", logo: str = "logo.png", css: str = "styles.css",
@@ -37,11 +46,27 @@ def render(article: Article, *, journal: str = "", logo: str = "logo.png", css: 
         rows = [spans_html(r) for r in article.authors]
         out += ['<div class="author">']
         out += [f"    {r}<br>" for r in rows[:-1]] + [f"    {rows[-1]}", "</div>", "", "<hr>", ""]
-    for block in article.body:
-        if block.kind == PAGE:
+    notes: list[str] = []  # a page's footnotes, written together in one block
+    for i, block in enumerate(article.body):
+        if block.kind == FOOTNOTE:
+            notes.append(wrap(spans_html(block.rows[0]), width))
+            if i + 1 < len(article.body) and article.body[i + 1].kind == FOOTNOTE:
+                continue
+            out += [FOOTNOTE_RULE, "", '<div class="footnote">', "\n    <br><br>\n".join(notes), "</div>", ""]
+            notes = []
+        elif block.kind == PAGE:
             out += [f"<p>Page {escape(block.label)}</p>", ""]
         elif block.kind == PARAGRAPH:
             out += ["<p>", wrap(spans_html(block.rows[0]), width), "</p>", ""]
+        elif block.kind == HEADING:
+            out += [f"<h4>{spans_html(block.rows[0])}</h4>", ""]
+        elif block.kind == ABSTRACT:
+            out += ['<div class="abstract">', wrap(spans_html(block.rows[0]), width), "</div>", ""]
+        elif block.kind == FIGURE:
+            for row in block.rows:
+                out += ["<p>", wrap(spans_html(row), width), "</p>", ""]
+            alt = " ".join(spans_text(block.rows[0]).split()) if block.rows else ""
+            out += [f'<img src="{_attr(image_src(block))}" alt="{_attr(alt)}" style="width:100%;">', ""]
         elif block.kind == LINES:
             rows = [spans_html(r) for r in block.rows]
             out += ["<p>"] + [f"    {r}<br>" for r in rows[:-1]] + [f"    {rows[-1]}", "</p>", ""]

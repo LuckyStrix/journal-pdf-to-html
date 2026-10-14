@@ -3,8 +3,9 @@
 Turns a typeset journal article (a PDF from InDesign or similar) into an HTML page in
 the journal's web template. It does the job that was being done by hand: copy the text
 out of the PDF, rejoin hyphenated words, mark where each printed page starts, keep
-footnotes and the signature, and write every special character as an HTML entity.
-It then **checks that no text was lost**.
+headings, the abstract, footnotes and the signature, save each figure as an image file
+with its caption, and write every special character as an HTML entity. It then
+**checks that no text and no picture was lost**.
 
 ```
  article.pdf                      pdf2html                                article.html
@@ -28,15 +29,19 @@ It then **checks that no text was lost**.
 ## Before you use it
 
 - **Check every page against the PDF before publishing.** The converter is built for
-  single-article PDFs laid out like the journal's book reviews: a title, an author
-  block, one or two text columns, footnotes and printed page numbers. **It does not
-  convert images, figures or tables.** Section headings, block quotes, lists and
-  reference lists come out as ordinary paragraphs, and a hanging-indent reference
-  list will be split into one paragraph per line. Fix those by hand.
+  single-article PDFs laid out like the journal's book reviews and research articles:
+  a title, an author block, an abstract, one or two text columns, headings, figures,
+  footnotes, a bibliography and printed page numbers. **Tables come out as text, and a
+  chart drawn as lines (not as a picture) isn't saved as an image.** Block quotes and
+  lists come out as ordinary paragraphs. Fix those by hand.
+- **Write alt text for every figure.** Each figure's `alt` is its caption until you
+  replace it with a description of what the picture shows. The report lists each one.
 - **Nothing is dropped silently.** If any letter or digit printed in the PDF is
-  missing from the HTML (or appears from nowhere), the converter writes nothing and
-  says so. Running heads and feet ("Journal of …" beside the page number) are the one
-  thing left out on purpose, and each one is listed in the report.
+  missing from the HTML (or appears from nowhere), or any picture is neither a figure
+  in the page nor reported as left out, the converter writes nothing and says so.
+  Running heads and feet ("Journal of …" beside the page number) are left out on
+  purpose, and so are pictures nobody can see (an old version hidden under its
+  replacement, a logo repeated in the margin). Each one is listed in the report.
 - **Hyphens are a judgement call.** A hyphen at a line end is removed
   ("administra-" + "tion") unless the hyphenated word appears elsewhere in the
   article, or the next part starts with a capital or a digit ("anti-" + "European").
@@ -78,18 +83,27 @@ Put the PDF in `data/` (git ignores that folder), then run:
 python -m pdf2html convert "data/Article 5.pdf" --journal "Journal of Example Studies"
 ```
 
-This writes `data/Article 5.html` next to the PDF and prints a report:
+This writes `data/Article 5.html` next to the PDF, and each figure as `figure1.jpeg`,
+`figure2.png`, … beside it, and prints a report:
 
 ```
 data/Article 5.pdf -> data/Article 5.html
-  pages 101-103 (3), title: yes, author lines: 2, paragraph pieces: 13, footnote/signature blocks: 2
+  pages 101-103 (3), title: yes, author lines: 2, headings: 4, paragraph pieces: 13, footnote/signature blocks: 5, figures: 2
   line-end hyphens: 41 rejoined, 0 kept
+  note: page 102: left out a picture 619x215 px, hidden under another picture drawn over it
+  note: page 101: figure1: write alt text describing the picture (it is the caption for now)
   note: page 102: left out running head/foot "Journal of Example Studies"
-  note: page 103: left out running head/foot "..."
+  wrote figure1.jpeg
+  wrote figure2.jpeg
 ```
 
 Read the notes. A running head that names a different article is a typesetting
 error in the PDF itself, so tell whoever made it.
+
+Figures are named after their caption ("Figure 3: …" becomes `figure3.jpeg`; a
+picture with no caption becomes `image1`, …). JPEGs are saved exactly as they are
+inside the PDF; other pictures are saved as PNG. If you have the author's original,
+higher-resolution files you can use those instead under the same names.
 
 Copy the page next to the site's `styles.css` and `logo.png`, open it in a browser,
 and compare it with the PDF.
@@ -102,8 +116,9 @@ and compare it with the PDF.
 | `--logo PATH` / `--no-logo` | `logo.png` | the banner image the page shows |
 | `--css PATH` | `styles.css` | the stylesheet the page links to |
 | `--lang CODE` | `en` | the page's language, for screen readers |
+| `--image-prefix TEXT` | none | put this before each figure's file name, so several articles can share a folder |
 | `--show-joins` | off | list every line-end hyphen decision |
-| `--force` | off | overwrite an existing page (otherwise it refuses) |
+| `--force` | off | overwrite an existing page and its figures (otherwise it refuses) |
 
 ### When something comes out wrong
 
@@ -123,7 +138,16 @@ text yourself.
   paragraph runs across a page break, it's split there, as in the hand-made pages.
   A word hyphenated across the break moves whole to the new page.
 - **Footnotes stay on their page.** They come after the last text of the page they
-  were printed on, before the next page marker.
+  were printed on, under a short rule in one `<div class="footnote">`, before the next
+  page marker. Note references in the text are `<sup>`, and web addresses are links.
+- **Figures are taken out of the text flow.** The columns are read on around a
+  figure (a word hyphenated across it is rejoined), and the figure (caption, then
+  `<img>`) goes at the start of its page if it is printed above all the page's text,
+  otherwise after the page's text.
+- **Web addresses broken across lines are rejoined without a space.** A hyphen at the
+  break is kept, unless the same address appears unbroken elsewhere in the article
+  without it, or the two halves make an ordinary word ("con-" / "flicts"). Each one is
+  listed by `--show-joins`.
 - **Every non-ASCII character becomes an entity** (`&rsquo;`, `&mdash;`, `&oslash;`).
   The template asks for that. The hand-made pages did it for some characters and not
   others, and turned curly apostrophes into straight ones. The converter keeps the
@@ -148,10 +172,13 @@ text yourself.
 python -m pytest -q
 ```
 
-The tests never use a real article. `tests/make_pdf.py` builds an invented review
-as a PDF in code, laid out like the real ones (title, author block, starred
-footnote, two columns, a word hyphenated across the page break, a running foot, an
-italic closing statement and a signature), and the end-to-end tests convert it.
+The tests never use a real article. `tests/make_pdf.py` builds two invented
+articles as PDFs in code, laid out like the real ones: a book review (title, author
+block, starred footnote, two columns, a word hyphenated across the page break, a
+running foot, an italic closing statement and a signature) and a research article
+(abstract, headings, superscript note references, a figure the columns flow around,
+a figure drawn over an older copy of itself, a small-print footnote with a web
+address broken across lines, and a bibliography). The end-to-end tests convert both.
 
 ## License
 
