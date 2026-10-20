@@ -148,6 +148,9 @@ def main(argv: list[str] | None = None) -> int:
     i.add_argument("--unmasked", action="store_true", help="show the real text (don't share this output)")
     i.set_defaults(func=cmd_inspect)
 
+    g = sub.add_parser("gui", help="open the window (choose the PDFs and a folder, press Start)")
+    g.set_defaults(func=lambda args: __import__("pdf2html.gui", fromlist=["run"]).run())
+
     args = parser.parse_args(argv)
     netguard.enable()  # every command runs offline
     return args.func(args)

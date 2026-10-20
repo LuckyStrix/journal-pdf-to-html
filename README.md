@@ -26,6 +26,23 @@ with its caption, and write every special character as an HTML entity. It then
 | `render.py` | writes the page in the template |
 | `check.py` | compares every letter and digit in the PDF with the article and the HTML |
 
+## Quick start: one command
+
+```bash
+git clone https://github.com/LuckyStrix/journal-pdf-to-html.git
+cd journal-pdf-to-html
+python3 run.py          # Linux
+run.bat                 # Windows: double-click it, or type it in PowerShell
+```
+
+The first run sets itself up (one small download, no administrator rights, all inside this
+folder) and opens a window: choose the **article PDF** (or a folder of them), choose the
+**output folder**, press **Start**, and watch the progress bar. Each article gets its own
+folder with its HTML page and figures. Anything to check by hand is listed in the window.
+After that, the same command just opens the window.
+
+The rest of this page covers the command line, for scripting and troubleshooting.
+
 ## Before you use it
 
 - **Check every page against the PDF before publishing.** The converter is built for
