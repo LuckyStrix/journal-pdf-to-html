@@ -7,6 +7,47 @@ headings, the abstract, footnotes and the signature, save each figure as an imag
 with its caption, and write every special character as an HTML entity. It then
 **checks that no text and no picture was lost**.
 
+## Quick start: one command
+
+```bash
+git clone https://github.com/LuckyStrix/journal-pdf-to-html.git
+cd journal-pdf-to-html
+python3 run.py          # Linux
+.\run.bat               # Windows: double-click run.bat, or type this in PowerShell
+```
+
+That's the whole setup. The first run creates a Python environment inside this folder,
+installs the PDF reader (one small download, no administrator rights), and opens a window.
+After that, the same command just opens the window.
+
+In the window:
+
+1. **Input PDF:** choose one article PDF, or a folder of them.
+2. **Output folder:** where the pages go (`Journal pages` in your home folder unless you
+   pick another). Each article gets its own folder, `<name>/<name>.html` with its figures
+   beside it, so two articles never overwrite each other's pictures.
+3. **Journal name** (optional): used for the page title and the logo's alt text.
+4. Press **Start** and watch the progress bar. **Cancel** stops cleanly. When it's done,
+   anything that couldn't be converted, and anything to check by hand (alt text, left-out
+   running heads), is listed in the window. **Open the pages folder** shows the results.
+
+If a page already exists, the window asks before replacing it, since it may have been
+edited by hand.
+
+What the launcher can't install for you, it checks for and explains:
+
+- **Python 3.11 or newer.** On Windows, `run.bat` tells you how to get it without
+  administrator rights (`winget install --id Python.Python.3.11 -e --scope user`, or the
+  python.org installer with "Install for me only"; keep "tcl/tk and IDLE" ticked).
+- **On Linux, `python3-venv` and `python3-tk`** if your distribution splits them out
+  (Debian and Ubuntu do): `sudo apt install python3-venv python3-tk`.
+
+If the folder is moved or Python is upgraded, the next run notices the broken
+environment and rebuilds it. `python3 run.py --check` sets everything up without
+opening the window.
+
+## How it works
+
 ```
  article.pdf                      pdf2html                                article.html
 ┌─────────────┐     ┌──────────────────────────────────────────┐     ┌──────────────────────┐
@@ -25,23 +66,6 @@ with its caption, and write every special character as an HTML entity. It then
 | `text.py` | de-hyphenation, whitespace, HTML escaping and wrapping |
 | `render.py` | writes the page in the template |
 | `check.py` | compares every letter and digit in the PDF with the article and the HTML |
-
-## Quick start: one command
-
-```bash
-git clone https://github.com/LuckyStrix/journal-pdf-to-html.git
-cd journal-pdf-to-html
-python3 run.py          # Linux
-run.bat                 # Windows: double-click it, or type it in PowerShell
-```
-
-The first run sets itself up (one small download, no administrator rights, all inside this
-folder) and opens a window: choose the **article PDF** (or a folder of them), choose the
-**output folder**, press **Start**, and watch the progress bar. Each article gets its own
-folder with its HTML page and figures. Anything to check by hand is listed in the window.
-After that, the same command just opens the window.
-
-The rest of this page covers the command line, for scripting and troubleshooting.
 
 ## Before you use it
 
@@ -67,30 +91,19 @@ The rest of this page covers the command line, for scripting and troubleshooting
   real articles. In short, article PDFs and generated pages stay out of git, and the
   converter runs fully offline.
 
-## Setup
+## Using the command line
 
-You need Python 3.11 or newer.
+For scripting and troubleshooting. `run.py` already created the environment in `.venv`. The commands below use `python`,
+which means `.venv/bin/python` on Linux and `.venv\Scripts\python` on Windows.
+`python -m pdf2html gui` opens the same window as `run.py`.
 
-**Linux**
+To set up by hand instead (Python 3.11 or newer):
 
 ```bash
-git clone https://github.com/LuckyStrix/journal-pdf-to-html.git
-cd journal-pdf-to-html
 python3 -m venv .venv
-.venv/bin/pip install -r requirements.txt
+.venv/bin/pip install -r requirements.txt          # Linux
+.venv\Scripts\pip install -r requirements.txt     # Windows
 ```
-
-**Windows** (PowerShell, native Python, no WSL needed)
-
-```powershell
-git clone https://github.com/LuckyStrix/journal-pdf-to-html.git
-cd journal-pdf-to-html
-py -3 -m venv .venv
-.venv\Scripts\pip install -r requirements.txt
-```
-
-The commands below use `python`. On Linux that's `.venv/bin/python`, and on Windows
-it's `.venv\Scripts\python`.
 
 ## Converting an article
 

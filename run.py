@@ -5,7 +5,7 @@
 
 Nothing here needs administrator rights: the Python environment lives inside this folder.
 Only the first run downloads anything (one small package); after that this just opens the
-window. Standard library only, so any Python 3.9+ can start it.
+window. Standard library only. Python 3.11 or newer.
 """
 from __future__ import annotations
 
@@ -33,10 +33,25 @@ def run(*cmd, **kw) -> int:
     return subprocess.run([str(c) for c in cmd], cwd=ROOT, **kw).returncode
 
 
+def venv_works() -> bool:
+    """The environment's Python starts and has pip. A folder moved after setup, or a Python
+    upgraded or removed since, leaves a .venv that exists but can't install anything."""
+    if not PY.exists():
+        return False
+    try:
+        return run(PY, "-m", "pip", "--version", stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL) == 0
+    except OSError:
+        return False
+
+
 def ensure_venv() -> None:
-    if PY.exists():
+    if venv_works():
         return
-    say("Creating the Python environment in .venv (first run only)")
+    if VENV.exists():
+        say("The Python environment in .venv is broken (moved, or Python changed); rebuilding it")
+        shutil.rmtree(VENV, ignore_errors=True)
+    else:
+        say("Creating the Python environment in .venv (first run only)")
     try:
         venv.EnvBuilder(with_pip=True, clear=False).create(VENV)
     except Exception as exc:  # Debian/Ubuntu ship venv without pip unless python3-venv is installed
@@ -62,8 +77,10 @@ def ensure_tk() -> None:
 
 
 def main(argv: list[str]) -> int:
-    if sys.version_info < (3, 9):
-        stop("Python 3.9 or newer is needed (3.11 recommended).")
+    if sys.version_info < (3, 11):
+        stop(f"Python 3.11 or newer is needed (this is {sys.version.split()[0]}).\n"
+             + ("Install it for your user only: winget install --id Python.Python.3.11 -e --scope user"
+                if os.name == "nt" else "Ask whoever administers this computer to install python3.11 or newer."))
     ensure_venv()
     ensure_deps()
     ensure_tk()

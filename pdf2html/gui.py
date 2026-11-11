@@ -147,7 +147,7 @@ class App:
 
         self.bar = ttk.Progressbar(frame, maximum=100)
         self.bar.grid(row=4, column=0, columnspan=3, sticky="ew")
-        self.log = scrolledtext.ScrolledText(frame, height=12, state="disabled", font=("TkFixedFont", 9))
+        self.log = scrolledtext.ScrolledText(frame, height=12, state="disabled", font="TkFixedFont")
         self.log.grid(row=5, column=0, columnspan=3, sticky="nsew", pady=8)
         ttk.Label(frame, textvariable=self.status, wraplength=600).grid(row=6, column=0, columnspan=3, sticky="w")
         root.protocol("WM_DELETE_WINDOW", self.close)
@@ -226,7 +226,9 @@ class App:
 
     def _worker(self, pdfs: list[Path], out_dir: Path, journal: str, force: bool) -> None:
         env = dict(os.environ, PYTHONUNBUFFERED="1", PYTHONIOENCODING="utf-8")
-        kwargs = {"creationflags": 0x00000200} if os.name == "nt" else {"start_new_session": True}
+        # Windows: a new process group (so Cancel can stop it) and no console window of its own
+        kwargs = ({"creationflags": 0x00000200 | 0x08000000} if os.name == "nt"
+                  else {"start_new_session": True})
         for pdf in pdfs:
             if self.cancelled:
                 break
